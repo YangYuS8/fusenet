@@ -41,6 +41,9 @@ inline const char* cudnnGetErrorString(cudnnStatus_t status) {
       return "CUDNN_STATUS_NOT_SUPPORTED";
     case CUDNN_STATUS_LICENSE_ERROR:
       return "CUDNN_STATUS_LICENSE_ERROR";
+    // TODO:较新版本的 cuDNN API 增加了更多的错误状态码，可以暂时忽略
+    default:
+      return "Unknown or unsupported cuDNN status";
   }
   return "Unknown cudnn status";
 }
@@ -109,8 +112,18 @@ template <typename Dtype>
 inline void setConvolutionDesc(cudnnConvolutionDescriptor_t* conv,
     cudnnTensorDescriptor_t bottom, cudnnFilterDescriptor_t filter,
     int pad_h, int pad_w, int stride_h, int stride_w) {
-  CUDNN_CHECK(cudnnSetConvolution2dDescriptor(*conv,
-      pad_h, pad_w, stride_h, stride_w, 1, 1, CUDNN_CROSS_CORRELATION));
+  // TODO:适配新版 cuDNN API
+  // CUDNN_CHECK(cudnnSetConvolution2dDescriptor(*conv,
+  //     pad_h, pad_w, stride_h, stride_w, 1, 1, CUDNN_CROSS_CORRELATION));
+  #if CUDNN_VERSION >= 7000
+    CUDNN_CHECK(cudnnSetConvolution2dDescriptor(*conv, pad_h, pad_w, 
+                                                          stride_h, stride_w, 1, 1, 
+                                                          CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT));
+  #else
+    CUDNN_CHECK(cudnnSetConvolution2dDescriptor(*conv, pad_h, pad_w,
+                                                          stride_h, stride_w, 1, 1, 
+                                                          CUDNN_CROSS_CORRELATION));
+  #endif
 }
 
 template <typename Dtype>

@@ -54,7 +54,13 @@ bool ReadProtoFromBinaryFile(const char* filename, Message* proto) {
   CHECK_NE(fd, -1) << "File not found: " << filename;
   ZeroCopyInputStream* raw_input = new FileInputStream(fd);
   CodedInputStream* coded_input = new CodedInputStream(raw_input);
-  coded_input->SetTotalBytesLimit(kProtoReadBytesLimit, 536870912);
+  // coded_input->SetTotalBytesLimit(kProtoReadBytesLimit, 536870912);
+  // TODO:适配新旧版本的 Protobuf
+  #if GOOGLE_PROTOBUF_VERSION >= 3011000  // Protobuf 3.11.0 及更新版本
+    coded_input->SetTotalBytesLimit(kProtoReadBytesLimit);
+  #else
+    coded_input->SetTotalBytesLimit(kProtoReadBytesLimit, 536870912);
+  #endif
 
   bool success = proto->ParseFromCodedStream(coded_input);
 
@@ -73,8 +79,15 @@ void WriteProtoToBinaryFile(const Message& proto, const char* filename) {
 cv::Mat ReadImageToCVMat(const string& filename,
     const int height, const int width, const bool is_color) {
   cv::Mat cv_img;
-  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
-    CV_LOAD_IMAGE_GRAYSCALE);
+  // int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
+  //   CV_LOAD_IMAGE_GRAYSCALE);
+  // TODO:兼容新旧版本的 OpenCV
+  int cv_read_flag;
+  #if CV_MAJOR_VERSION >= 4
+    cv_read_flag = (is_color ? cv::IMREAD_COLOR : cv::IMREAD_GRAYSCALE);
+  #else
+    cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_GRAYSCALE);
+  #endif
   cv::Mat cv_img_origin = cv::imread(filename, cv_read_flag);
   if (!cv_img_origin.data) {
     LOG(ERROR) << "Could not open or find file " << filename;
@@ -179,8 +192,15 @@ cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const string& data = datum.data();
   std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
-  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
-    CV_LOAD_IMAGE_GRAYSCALE);
+  // int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
+  //   CV_LOAD_IMAGE_GRAYSCALE);
+  // TODO:兼容新旧版本的 OpenCV
+  int cv_read_flag;
+  #if CV_MAJOR_VERSION >= 4
+    cv_read_flag = (is_color ? cv::IMREAD_COLOR : cv::IMREAD_GRAYSCALE);
+  #else
+    cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_GRAYSCALE);
+  #endif
   cv_img = cv::imdecode(vec_data, cv_read_flag);
   if (!cv_img.data) {
     LOG(ERROR) << "Could not decode datum ";

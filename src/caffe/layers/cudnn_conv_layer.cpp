@@ -128,14 +128,40 @@ void CuDNNConvolutionLayer<Dtype>::Reshape(
         stride_h, stride_w);
 
     // choose forward and backward algorithms + workspace(s)
-    CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm(handle_[0],
-      bottom_descs_[i],
-      filter_desc_,
-      conv_descs_[i],
-      top_descs_[i],
-      CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT,
-      workspace_limit_bytes,
-      &fwd_algo_[i]));
+    // CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm(handle_[0],
+    //   bottom_descs_[i],
+    //   filter_desc_,
+    //   conv_descs_[i],
+    //   top_descs_[i],
+    //   CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT,
+    //   workspace_limit_bytes,
+    //   &fwd_algo_[i]));
+
+    // TODO:将旧的 API 调用替换为新版本
+    #if CUDNN_VERSION >= 7000
+      // 使用 v7 API
+      int returned_algo_count;
+      cudnnConvolutionFwdAlgoPerf_t fwd_perf;
+      CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm_v7(handle_[0],
+        bottom_descs_[i],
+        filter_desc_,
+        conv_descs_[i],
+        top_descs_[i],
+        1,  // 只请求一个算法
+        &returned_algo_count,
+        &fwd_perf));
+      fwd_algo_[i] = fwd_perf.algo;
+    #else
+      // 旧版本 API
+      CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm(handle_[0],
+        bottom_descs_[i],
+        filter_desc_,
+        conv_descs_[i],
+        top_descs_[i],
+        CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT,
+        workspace_limit_bytes,
+        &fwd_algo_[i]));
+    #endif
 
     CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(handle_[0],
       bottom_descs_[i],
@@ -146,10 +172,31 @@ void CuDNNConvolutionLayer<Dtype>::Reshape(
       &(workspace_fwd_sizes_[i])));
 
     // choose backward algorithm for filter
-    CUDNN_CHECK(cudnnGetConvolutionBackwardFilterAlgorithm(handle_[0],
-          bottom_descs_[i], top_descs_[i], conv_descs_[i], filter_desc_,
-          CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT,
-          workspace_limit_bytes, &bwd_filter_algo_[i]) );
+    // CUDNN_CHECK(cudnnGetConvolutionBackwardFilterAlgorithm(handle_[0],
+    //       bottom_descs_[i], top_descs_[i], conv_descs_[i], filter_desc_,
+    //       CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT,
+    //       workspace_limit_bytes, &bwd_filter_algo_[i]) );
+    
+    // TODO:将旧的 API 调用替换为新版本
+    #if CUDNN_VERSION >= 7000
+      // 使用 v7 API
+      int returned_filter_algo_count;
+      cudnnConvolutionBwdFilterAlgoPerf_t bwd_filter_perf;
+      CUDNN_CHECK(cudnnGetConvolutionBackwardFilterAlgorithm_v7(handle_[0],
+        bottom_descs_[i], 
+        top_descs_[i], 
+        conv_descs_[i], 
+        filter_desc_,
+        1,
+        &returned_filter_algo_count,
+        &bwd_filter_perf));
+      bwd_filter_algo_[i] = bwd_filter_perf.algo;
+    #else
+      CUDNN_CHECK(cudnnGetConvolutionBackwardFilterAlgorithm(handle_[0],
+        bottom_descs_[i], top_descs_[i], conv_descs_[i], filter_desc_,
+        CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT,
+        workspace_limit_bytes, &bwd_filter_algo_[i]));
+    #endif
 
     // get workspace for backwards filter algorithm
     CUDNN_CHECK(cudnnGetConvolutionBackwardFilterWorkspaceSize(handle_[0],
@@ -157,10 +204,31 @@ void CuDNNConvolutionLayer<Dtype>::Reshape(
           bwd_filter_algo_[i], &workspace_bwd_filter_sizes_[i]));
 
     // choose backward algo for data
-    CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm(handle_[0],
-          filter_desc_, top_descs_[i], conv_descs_[i], bottom_descs_[i],
-          CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT,
+    // CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm(handle_[0],
+    //       filter_desc_, top_descs_[i], conv_descs_[i], bottom_descs_[i],
+    //       CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT,
+    //     workspace_limit_bytes, &bwd_data_algo_[i]));
+
+    // TODO:将旧的 API 调用替换为新版本
+    #if CUDNN_VERSION >= 7000
+      // v7 API
+      int returned_data_algo_count;
+      cudnnConvolutionBwdDataAlgoPerf_t bwd_data_perf;
+      CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm_v7(handle_[0],
+        filter_desc_,
+        top_descs_[i],
+        conv_descs_[i],
+        bottom_descs_[i],
+        1,
+        &returned_data_algo_count,
+        &bwd_data_perf));
+      bwd_data_algo_[i] = bwd_data_perf.algo;
+    #else
+      CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm(handle_[0],
+        filter_desc_, top_descs_[i], conv_descs_[i], bottom_descs_[i],
+        CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT,
         workspace_limit_bytes, &bwd_data_algo_[i]));
+    #endif
 
     // get workspace size
     CUDNN_CHECK(cudnnGetConvolutionBackwardDataWorkspaceSize(handle_[0],

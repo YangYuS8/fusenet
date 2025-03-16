@@ -2,7 +2,7 @@
 # the standard cmake script with version and python generation support
 
 find_package( Protobuf REQUIRED )
-include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
+include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIRS})
 list(APPEND Caffe_LINKER_LIBS ${PROTOBUF_LIBRARIES})
 
 # As of Ubuntu 14.04 protoc is no longer a part of libprotobuf-dev package
